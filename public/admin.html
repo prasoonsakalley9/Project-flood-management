@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin console | Urban Flood Watch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/style.css">
+<style>
+/* Multi-page workspace: each navigation item is a distinct page URL. */
+body[data-page] .main > * { display:none !important; }
+body[data-page] .main > header.topbar { display:flex !important; }
+body[data-page] .main > footer { display:block !important; }
+body[data-page] .main > .safety-banner { display:block !important; }
+body[data-page="dashboard"] .main > #overview,
+body[data-page="dashboard"] .main > .metrics,
+body[data-page="dashboard"] .main > .content-grid.lower,
+body[data-page="dashboard"] .main > .safety-banner { display:grid !important; }
+body[data-page="dashboard"] .main > .content-grid.lower { display:grid !important; }
+body[data-page="dashboard"] .main > .content-grid.lower > #sources { display:none !important; }
+body[data-page="risk-map"] .main > .content-grid { display:grid !important; }
+body[data-page="risk-map"] .main > .content-grid > #alerts-panel { display:none !important; }
+body[data-page="risk-map"] .main > .content-grid > .map-panel { display:block !important; grid-column:1/-1; }
+body[data-page="analytics"] .main > #analytics { display:block !important; }
+body[data-page="alerts"] .main > .content-grid { display:grid !important; }
+body[data-page="alerts"] .main > .content-grid > #map-panel { display:none !important; }
+body[data-page="alerts"] .main > .content-grid > #alerts-panel { display:block !important; grid-column:1/-1; }
+body[data-page="safety"] .main > #safety { display:grid !important; }
+body[data-page="admin"] .main > #admin { display:block !important; }
+body[data-page="sources"] .main > .content-grid.lower { display:grid !important; }
+body[data-page="sources"] .main > .content-grid.lower > section:first-child { display:none !important; }
+body[data-page="sources"] .main > .content-grid.lower > #sources { display:block !important; grid-column:1/-1; }
+body[data-page="dashboard"] .main > header.topbar h1 { font-size:30px; }
+@media(max-width:850px) { body[data-page="risk-map"] .main > .content-grid, body[data-page="alerts"] .main > .content-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body data-page="admin">
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-icon">≈</div><div><b>FLOOD<span>WATCH</span></b><small>URBAN INTELLIGENCE</small></div></div>
+  <div class="side-label">WORKSPACE</div>
+  <a class="nav" href="/">▦ &nbsp; Dashboard</a>
+  <a class="nav" href="/risk-map.html">⌖ &nbsp; Risk map</a>
+  <a class="nav" href="/analytics.html">▥ &nbsp; Analytics & graphs</a>
+  <a class="nav" href="/alerts.html">♧ &nbsp; Alert centre</a>
+  <a class="nav" href="/safety.html">✚ &nbsp; Safety & SOS</a>
+  <a class="nav" href="/">▦ &nbsp; Dashboard</a>
+<a class="nav" href="/risk-map.html">⌖ &nbsp; Risk map</a>
+<a class="nav" href="/zones.html">▦ &nbsp; Ward intelligence</a>
+<a class="nav" href="/prediction.html">◈ &nbsp; AI risk outlook</a>
+<a class="nav" href="/route.html">➜ &nbsp; Safe route checker</a>
+<a class="nav" href="/hotspots.html">⌖ &nbsp; Waterlogging hotspots</a>
+<a class="nav" href="/community.html">☷ &nbsp; Community reports</a>
+<a class="nav" href="/response.html">✚ &nbsp; Emergency response</a>
+<a class="nav" href="/analytics.html">▥ &nbsp; Analytics & graphs</a>
+<a class="nav" href="/alerts.html">♧ &nbsp; Alert centre</a>
+<a class="nav" href="/safety.html">✚ &nbsp; Safety & SOS</a>
+<a class="nav active" href="/admin.html">⚙ &nbsp; Admin console</a>
+<a class="nav" href="/sources.html">⌁ &nbsp; Data sources</a>
+  <div class="side-bottom"><div class="live-dot"></div><span>Monitoring service</span><b id="service-status">CONNECTING</b></div>
+</aside>
+<main class="main">
+<header class="topbar"><div><div class="eyebrow">CITY OPERATIONS / LIVE MONITORING</div><h1>Urban Flood Intelligence</h1><p>Automatic weather-based flood watches with independent primary and backup weather providers. IMD/CWC access is optional.</p></div><div class="top-actions"><span class="live-pill"><i></i> LIVE MONITORING</span><button id="refresh-btn" class="button secondary">↻ Refresh data</button></div></header>
+<section class="summary" id="overview">
+  <div class="summary-copy"><div class="eyebrow light">MONITORING LOCATION</div><h2 id="city-name">Indore, India</h2><p>Prototype city dashboard · Update time <span id="updated-at">waiting for data…</span></p></div>
+  <div class="risk-box"><div class="eyebrow light">WEATHER-DRIVEN FLOOD WATCH</div><div class="risk-line"><strong id="risk-level">—</strong><span id="risk-score">— / 100</span></div><div class="meter"><span id="risk-meter"></span></div><small id="risk-caption">Waiting for weather data</small></div>
+</section>
+<section class="metrics">
+ <article class="metric"><div class="metric-head">Rainfall signal <span>◉</span></div><strong id="rain-value">— <small>mm</small></strong><p id="rain-sub">Current / next forecast hour</p></article>
+ <article class="metric"><div class="metric-head">Temperature <span>☼</span></div><strong id="temp-value">— <small>°C</small></strong><p>Open-Meteo current conditions</p></article>
+ <article class="metric"><div class="metric-head">Humidity <span>◌</span></div><strong id="humidity-value">— <small>%</small></strong><p>Relative humidity</p></article>
+ <article class="metric"><div class="metric-head">Next 6-hour rainfall <span>⌁</span></div><strong id="rain6-value">— <small>mm</small></strong><p id="rain6-sub">Forecast accumulation</p></article>
+</section>
+<div class="content-grid">
+ <section class="panel map-panel" id="map-panel"><div class="panel-head"><div><div class="eyebrow">GEOSPATIAL VIEW</div><h3>Weather watch map</h3></div><span class="tag">OPENSTREETMAP</span></div><div id="map"></div><div class="map-legend"><span><i class="low"></i> Low risk</span><span><i class="moderate"></i> Moderate risk</span><span><i class="high"></i> High risk</span><small>Risk overlay is an illustrative prototype zone, not a surveyed flood boundary.</small></div></section>
+ <section class="panel" id="alerts-panel"><div class="panel-head"><div><div class="eyebrow">NOTIFICATION FEED</div><h3>Alert centre</h3></div><span class="tag" id="alert-count">0 ALERTS</span></div><div id="alerts-list" class="alerts-list"><div class="empty">No alerts received yet.</div></div><div class="alert-note">Alerts are generated automatically from the active weather provider. IMD/CWC are optional and not required. Email/SMS require credentials in <code>.env</code>.</div></section>
+</div>
+<div class="content-grid lower">
+ <section class="panel"><div class="panel-head"><div><div class="eyebrow">PREDICTION ENGINE</div><h3>Why this watch level was generated</h3></div><span class="tag">RULE-BASED MVP</span></div><div id="reasons" class="reasons"><div class="empty">Waiting for latest readings…</div></div><div class="disclaimer">This weather-driven screening indicator uses third-party weather forecasts. It does not confirm street flooding or replace official warnings; follow IMD and local authority advisories.</div></section>
+ <section class="panel" id="sources"><div class="panel-head"><div><div class="eyebrow">INGESTION STATUS</div><h3>Connected data sources</h3><p id="source-health-note" class="source-note">Checking provider connections…</p></div></div><div class="source-row"><div><b>Open-Meteo</b><small>Primary weather source · current conditions and hourly rainfall forecast</small></div><span id="weather-status" class="status pending">PENDING</span></div><div class="source-row"><div><b>MET Norway Locationforecast</b><small>Independent automatic backup if the primary weather provider fails</small></div><span id="backup-status" class="status pending">STANDBY</span></div><div class="source-row"><div><b>India Meteorological Department (IMD)</b><small>Optional future official-warning integration; core system does not depend on it</small></div><span id="imd-status" class="status pending">OPTIONAL</span></div><div class="source-row"><div><b>Central Water Commission (CWC)</b><small>Optional future river/flood-feed integration; core system does not depend on it</small></div><span id="cwc-status" class="status pending">OPTIONAL</span></div><div class="source-row"><div><b>OpenStreetMap</b><small>Base map tiles</small></div><span class="status connected">MAP</span></div></section>
+</div>
+
+<section class="panel feature-panel" id="analytics">
+ <div class="panel-head"><div><div class="eyebrow">WEATHER INTELLIGENCE</div><h3>Analytics & rainfall graphs</h3><p class="source-note">Live forecast values from the active provider. Trend history builds while this dashboard remains open.</p></div><span class="tag">LIVE + SESSION HISTORY</span></div>
+ <div class="chart-grid">
+  <article class="chart-card"><h4>Rainfall forecast · next 6 hours</h4><canvas id="rain-chart" height="150" aria-label="Rainfall forecast bar graph"></canvas></article>
+  <article class="chart-card"><h4>Risk score history</h4><canvas id="risk-chart" height="150" aria-label="Risk score line graph"></canvas></article>
+ </div>
+ <div class="analytics-stats"><div><small>Highest forecast rainfall</small><b id="peak-rain">— mm</b></div><div><small>Current risk score</small><b id="analytics-score">— / 100</b></div><div><small>Samples this session</small><b id="sample-count">0</b></div></div>
+</section>
+<section class="content-grid feature-grid" id="safety">
+ <article class="panel safety-panel">
+  <div class="panel-head"><div><div class="eyebrow">PUBLIC SAFETY</div><h3>Safety & SOS centre</h3></div><span class="tag safety-tag">COMMUNITY SUPPORT</span></div>
+  <div class="sos-card"><div><span class="sos-label">EMERGENCY ASSISTANCE</span><h4>Need immediate help?</h4><p>For a real emergency in India, contact emergency services directly. This website cannot dispatch rescue teams.</p></div><a class="sos-button" href="tel:112" aria-label="Call India's emergency number 112">CALL 112</a></div>
+  <h4 class="subheading">Flood safety checklist</h4>
+  <ul class="safety-list"><li>Move to higher ground if water is rising.</li><li>Stay away from flooded roads, drains and underpasses.</li><li>Never walk or drive through moving floodwater.</li><li>Keep your phone charged and follow local authority instructions.</li><li>Help children, older adults and people who may need assistance, if safe.</li></ul>
+  <div class="report-box"><h4>Report a local waterlogging concern</h4><p>Send a report to this prototype's local admin console. It is not an emergency dispatch channel.</p>
+   <form id="report-form"><label>Area / landmark<input id="report-location" required maxlength="100" placeholder="e.g. Vijay Nagar, near main crossing"></label><label>What are you reporting?<select id="report-type"><option>Waterlogging</option><option>Blocked drain</option><option>Heavy rainfall</option><option>Road obstruction</option><option>Other concern</option></select></label><label>Details<textarea id="report-details" rows="2" maxlength="500" placeholder="Describe the concern briefly"></textarea></label><button class="button primary" type="submit">Submit community report</button><span id="report-result" role="status"></span></form>
+  </div>
+ </article>
+ <article class="panel safety-panel"><div class="panel-head"><div><div class="eyebrow">RESPONSE GUIDANCE</div><h3>Preparedness information</h3></div><span class="tag">QUICK REFERENCE</span></div>
+  <div class="prepared-card"><b>Before heavy rainfall</b><p>Check weather updates, identify safer routes, keep essential items accessible and avoid parking in low-lying areas.</p></div>
+  <div class="prepared-card"><b>During waterlogging</b><p>Avoid underpasses and flowing water. Do not touch fallen electrical wires or electrical equipment exposed to water.</p></div>
+  <div class="prepared-card"><b>After water recedes</b><p>Wait for local clearance before returning to affected areas. Avoid contact with contaminated standing water.</p></div>
+  <div class="disclaimer">Safety information is general guidance, not a substitute for emergency responders or official local instructions.</div>
+ </article>
+</section>
+<section class="panel feature-panel" id="admin">
+ <div class="panel-head"><div><div class="eyebrow">OPERATIONS MANAGEMENT</div><h3>Admin console</h3><p class="source-note">Hackathon prototype controls. This is not a secured production administrator account.</p></div><span class="tag">LOCAL DEMO</span></div>
+ <div class="admin-grid">
+  <div class="admin-tile"><small>Service status</small><b id="admin-service">Checking…</b><span>Backend process</span></div>
+  <div class="admin-tile"><small>Weather provider</small><b id="admin-provider">Waiting…</b><span>Primary / backup selection</span></div>
+  <div class="admin-tile"><small>Community reports</small><b id="admin-reports">0</b><span>Reports stored in memory</span></div>
+  <div class="admin-tile"><small>Alert records</small><b id="admin-alerts">0</b><span>Recent generated alerts</span></div>
+ </div>
+ <div class="admin-actions"><button class="button primary" id="admin-refresh">↻ Refresh weather data</button><button class="button secondary" id="export-alerts">↓ Export alerts CSV</button><button class="button secondary" id="export-reports">↓ Export reports CSV</button></div>
+ <div class="admin-reports"><h4>Recent community reports</h4><div id="admin-report-list" class="empty">No community reports submitted.</div></div>
+ <div class="disclaimer">Prototype limitation: reports and trend samples are stored in server/browser memory and may reset when the server or browser restarts. Add authentication, a database, audit logs and role-based permissions before real deployment.</div>
+</section>
+<section class="panel roadmap-panel" id="roadmap">
+  <div class="panel-head">
+    <div><div class="eyebrow">NEXT DEVELOPMENT STAGE</div><h3>From prototype to city-ready platform</h3></div>
+    <span class="tag">PRODUCT ROADMAP</span>
+  </div>
+  <p class="roadmap-intro">These upgrades are planned extensions. The current dashboard is a hackathon prototype; items below are not represented as completed or validated features.</p>
+  <div class="roadmap-grid">
+    <article class="roadmap-card priority">
+      <span class="roadmap-priority">HACKATHON PRIORITY 01</span>
+      <h4>Optional official IMD data integration</h4>
+      <p>Add authorized IMD current-weather, district nowcast and warning feeds as an enhancement. The core weather-risk workflow continues without this integration.</p>
+      <span class="roadmap-state">Future enhancement · authorized access required</span>
+    </article>
+    <article class="roadmap-card priority">
+      <span class="roadmap-priority">HACKATHON PRIORITY 02</span>
+      <h4>Email & SMS alert delivery</h4>
+      <p>Configure SMTP and Twilio, test delivery with consenting recipients, and retain delivery status in the alert history.</p>
+      <span class="roadmap-state">Code included · provider credentials required</span>
+    </article>
+    <article class="roadmap-card priority">
+      <span class="roadmap-priority">HACKATHON PRIORITY 03</span>
+      <h4>Weather watch map validation</h4>
+      <p>Replace the illustrative map circle with risk layers based on verified elevation, catchment boundaries, drainage capacity and observed flood locations.</p>
+      <span class="roadmap-state">Map foundation included · validated layers needed</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">ADVANCED UPGRADE</span>
+      <h4>Trained ML prediction model</h4>
+      <p>Train and evaluate a model using historical rainfall, water levels, flood labels and drainage data. Compare predictions against held-out events.</p>
+      <span class="roadmap-state">Not yet implemented</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">ADVANCED UPGRADE</span>
+      <h4>MongoDB historical data</h4>
+      <p>Persist weather observations, sensor telemetry, predictions, alert events and operator actions for trend analysis and model training.</p>
+      <span class="roadmap-state">Not yet implemented</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">FIELD INTEGRATION</span>
+      <h4>Real IoT water-level sensors</h4>
+      <p>Replace the demo sensor with calibrated ultrasonic or pressure sensors sending authenticated MQTT/HTTPS telemetry.</p>
+      <span class="roadmap-state">Demo endpoint included · hardware required</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">ADVANCED MAPPING</span>
+      <h4>Street-level inundation mapping</h4>
+      <p>Use high-resolution terrain, surveyed drains, road elevations, catchment flow paths and validated hydraulic modelling.</p>
+      <span class="roadmap-state">Not yet implemented</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">DECISION SUPPORT</span>
+      <h4>Pump & sluice-gate scheduling</h4>
+      <p>Build a simulation that recommends operating schedules using water levels, pump capacity and downstream constraints. Keep human approval and safety interlocks.</p>
+      <span class="roadmap-state">Not yet implemented · simulation only</span>
+    </article>
+    <article class="roadmap-card">
+      <span class="roadmap-priority">RESEARCH DIRECTION</span>
+      <h4>ST-GNN / ConvLSTM</h4>
+      <p>Explore spatio-temporal graph neural networks or ConvLSTM to learn rainfall-runoff patterns across connected urban drainage zones.</p>
+      <span class="roadmap-state">Research / model development stage</span>
+    </article>
+  </div>
+  <div class="roadmap-callout"><b>Suggested 24-hour demo order:</b> verify primary weather ingestion → demonstrate automatic backup-provider failover (by temporarily making the primary unavailable in a test environment) → test automatic alert generation and optional email/SMS delivery. IMD/CWC are optional future integrations, not dependencies. Present ML, MongoDB, physical sensors and automated pump scheduling as planned extensions unless your team implements and validates them.</div>
+</section>
+<div class="safety-banner"><b>Prototype safety notice</b><span>Alerts are weather-driven screening signals, not confirmation of street flooding or official emergency warnings. Weather-provider outages can temporarily pause risk updates if both providers fail. The map overlay is illustrative. Always follow IMD and local authority instructions; do not use this prototype alone for emergency decisions or automatic pump/gate control.</span></div>
+
+<footer>URBAN FLOOD WATCH · HACKATHON PROTOTYPE · Not an official warning service</footer>
+</main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="/socket.io/socket.io.js"></script><script src="/app.js"></script>
+</body></html>
